@@ -1,0 +1,55 @@
+# DocuBhai – Architecture
+
+A tiny Windows-2003-style desktop app for PDF chores: **merge, split, sign, compare, view**.
+
+## Components
+
+| File | Role | Depends on |
+|---|---|---|
+| `pdf_ops.py` | Pure logic. No GUI imports. Four functions: `merge`, `split`, `sign`, `compare`. | `pypdf`, `reportlab` |
+| `viewer.py` | `ViewTab` (toolbar + scroll area) and `PageView` (draws one rendered page plus the selection highlight). | `PySide6.QtPdf` |
+| `app.py` | Qt GUI. Main window with one tab per feature; each tab collects inputs and calls `pdf_ops`. | `PySide6`, `pdf_ops` |
+| `tests/test_pdf_ops.py` | Unit tests for each feature, using generated PDFs. | `pdf_ops` |
+| `tests/test_app.py` | Sanity tests: window builds, tabs exist, a merge is driven through the GUI. | `app` |
+
+## Layers
+
+```
+ ┌────────────────────────────────────────────┐
+ │ app.py  (presentation)                     │
+ │  MainWindow ── QTabWidget                  │
+ │   ├─ MergeTab    (reorderable list)        │
+ │   ├─ SplitTab    (page ranges)             │
+ │   ├─ SignTab     (text signature, position)│
+ │   ├─ CompareTab  (text diff report)        │
+ │   └─ ViewTab     (viewer.py, uses QtPdf)   │
+ └───────────────┬────────────────────────────┘
+                 │ plain function calls (paths in, paths/strings out)
+ ┌───────────────▼────────────────────────────┐
+ │ pdf_ops.py  (logic, GUI-free, testable)    │
+ └───────────────┬────────────────────────────┘
+                 │
+          pypdf (read/write/merge)  reportlab (draw signature overlay)
+```
+
+## Data flow per feature
+
+1. **Merge** – user adds PDFs to a list, drags / uses Up/Down to reorder → `merge(paths_in_list_order, out)` appends pages in that order.
+2. **Split** – user picks a PDF and a range spec (`"1-3,5"`) or "every page" → `split(src, out_dir, ranges)` writes one PDF per range; returns the paths.
+3. **Sign** – user picks a PDF, types a signature, chooses page + corner → `sign(src, out, text, page, position)` renders the text with reportlab onto a one-page overlay and merges it onto the target page.
+4. **Compare** – user picks two PDFs → `compare(a, b)` extracts text per page and returns a unified-diff style report (or "identical"), shown in a read-only text box.
+5. **View** – `ViewTab.load` opens the file in a `QPdfDocument`. `PageView` lays out *all* pages in one tall widget inside a `QScrollArea` (continuous scroll) using only page sizes, and renders a page lazily when it enters the paint region. Rendered pages are composited onto opaque white, drawn at >=2x the screen resolution and smoothly downscaled, and kept in a small LRU cache (8 pages, pixel-capped at high zoom). Scrolling updates the current-page box; Prev/Next/page box scroll to a page top; `-`/`+`/Fit Width/Ctrl+wheel re-layout at a new `scale` (px per PDF point; 1.333 = 100%) while keeping the same spot in view. Dragging the mouse calls `QPdfDocument.getSelection(page, start, end)` (selection stays within the page where the drag began); the polygons are painted as a highlight and the text is copied by Copy / Ctrl+C. The viewer does not use `pdf_ops`.
+
+## Error handling
+
+`pdf_ops` raises `ValueError` for bad input (empty list, bad range, page out of bounds). The GUI catches `Exception` at one choke point (`run_safely`) and shows a `QMessageBox` – logic never touches widgets.
+
+## Look & feel
+
+A global Qt stylesheet gives Windows 2003 ("Luna"/classic): `#ECE9D8` beige surfaces, raised-bevel buttons, blue `#0054E3` title/selection, and **Comic Sans MS** in black everywhere (white only on the blue banner and selected list rows). The Fusion style is used as a base for consistent rendering.
+
+## Testing strategy
+
+- `pdf_ops` tests build small PDFs with reportlab (each page stamped with unique text), run an operation, and verify with pypdf (page counts, order, text).
+- `tests/test_viewer.py` loads a generated PDF, checks white page background, render resolution, continuous scroll/current page, cache bound, page clamping, zoom limits, fit-width, and simulates a mouse drag to verify select + copy.
+- GUI tests run with `QT_QPA_PLATFORM=offscreen`, no user interaction needed.
