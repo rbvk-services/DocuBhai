@@ -1,0 +1,11 @@
+{
+  "name": "docubhai-aristocrat-reader",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Web version of DocuBhai Aristocrat Reader (static site in ./web, runs fully in the browser)",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test \"tests/web/*.test.mjs\""
+  }
+}

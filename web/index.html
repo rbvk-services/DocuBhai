@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DocuBhai Aristocrat Reader</title>
+  <meta name="description" content="Merge, split, sign, compare and read PDFs. Runs entirely in your browser - files never leave your computer.">
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="vendor/pdf_viewer.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="window">
+  <header class="titlebar">
+    <img src="icon.png" alt="" width="18" height="18">
+    <span>DocuBhai Aristocrat Reader</span>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="merge" aria-selected="true">Merge</button>
+    <button role="tab" data-tab="split">Split</button>
+    <button role="tab" data-tab="sign">Sign</button>
+    <button role="tab" data-tab="compare">Compare</button>
+    <button role="tab" data-tab="view">View</button>
+  </nav>
+
+  <section class="panel" id="merge">
+    <p class="hint">Add PDFs, then drag them (or use Move Up / Move Down) to set the order.</p>
+    <div class="row grow">
+      <ul id="merge-list" class="list" aria-label="Files to merge"></ul>
+      <div class="col">
+        <label class="btn">Add...<input id="merge-add" type="file" accept="application/pdf" multiple hidden></label>
+        <button id="merge-remove">Remove</button>
+        <button id="merge-up">Move Up</button>
+        <button id="merge-down">Move Down</button>
+        <span class="spacer"></span>
+        <button id="merge-go">Merge &amp; Download</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="split" hidden>
+    <div class="form">
+      <label for="split-file">PDF:</label><input id="split-file" type="file" accept="application/pdf">
+      <label for="split-spec">Pages:</label>
+      <input id="split-spec" type="text" placeholder="e.g. 1-3,5   (blank = every page)">
+      <span></span><button id="split-go">Split</button>
+    </div>
+    <ul id="split-out" class="downloads"></ul>
+  </section>
+
+  <section class="panel" id="sign" hidden>
+    <div class="form">
+      <label for="sign-file">PDF:</label><input id="sign-file" type="file" accept="application/pdf">
+      <label for="sign-text">Signature:</label><input id="sign-text" type="text">
+      <label for="sign-page">Page:</label><input id="sign-page" type="number" min="1" value="1">
+      <label for="sign-pos">Position:</label>
+      <select id="sign-pos">
+        <option>bottom-right</option><option>bottom-left</option><option>top-right</option><option>top-left</option>
+      </select>
+      <span></span><button id="sign-go">Sign &amp; Download</button>
+    </div>
+  </section>
+
+  <section class="panel" id="compare" hidden>
+    <div class="form">
+      <label for="cmp-a">First PDF:</label><input id="cmp-a" type="file" accept="application/pdf">
+      <label for="cmp-b">Second PDF:</label><input id="cmp-b" type="file" accept="application/pdf">
+      <span></span><button id="cmp-go">Compare</button>
+    </div>
+    <pre id="cmp-out" class="result" aria-live="polite"></pre>
+  </section>
+
+  <section class="panel viewpanel" id="view" hidden>
+    <div class="toolbar">
+      <label class="btn">Open...<input id="view-file" type="file" accept="application/pdf" hidden></label>
+      <button id="view-prev">&lt; Prev</button>
+      <input id="view-page" type="number" min="1" value="1" aria-label="Page number">
+      <span id="view-of">of 0</span>
+      <button id="view-next">Next &gt;</button>
+      <button id="zoom-out">-</button><span id="zoom-label">100%</span><button id="zoom-in">+</button>
+      <button id="view-fit">Fit Width</button>
+      <button id="view-copy">Copy</button>
+    </div>
+    <div id="viewer" class="viewer" tabindex="0"></div>
+  </section>
+
+  <footer class="status"><span id="status">Ready</span><span>Your files never leave this browser.</span></footer>
+</main>
+
+<dialog id="msg"><h2 id="msg-title"></h2><p id="msg-text"></p><form method="dialog"><button>OK</button></form></dialog>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

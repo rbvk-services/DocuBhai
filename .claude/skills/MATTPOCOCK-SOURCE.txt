@@ -1,0 +1,2 @@
+Skills in this folder (tdd, diagnosing-bugs, codebase-design, grilling, grill-me, handoff) are copied from
+https://github.com/mattpocock/skills at commit b0618bc (MIT, see MATTPOCOCK-LICENSE).

@@ -1,0 +1,104 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>smoke</title>
+<iframe id="app" src="/DocuBhai/index.html" width="1100" height="800"></iframe>
+<pre id="result">PENDING</pre>
+<script type="module">
+import { PDFDocument, StandardFonts } from "/DocuBhai/vendor/pdf-lib.esm.min.js";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const results = {};
+const check = (name, ok, extra = "") => (results[name] = ok ? "ok" : `FAIL ${extra}`);
+async function until(fn, tries = 100) { for (let i = 0; i < tries; i++) { const v = await fn(); if (v) return v; await sleep(100); } return null; }
+
+async function makePdf(texts) {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  for (const t of texts) doc.addPage([595, 842]).drawText(t, { x: 100, y: 700, size: 14, font });
+  return doc.save();
+}
+const file = (bytes, name) => new File([bytes], name, { type: "application/pdf" });
+function setFiles(input, files) {
+  const dt = new DataTransfer();
+  files.forEach((f) => dt.items.add(f));
+  input.files = dt.files;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+try {
+  const frame = document.getElementById("app");
+  await new Promise((r) => frame.addEventListener("load", r));
+  const w = frame.contentWindow, d = frame.contentDocument;
+  const { viewer } = w.docubhai;
+  check("fonts", getComputedStyle(d.body).fontFamily.includes("Comic Sans"));
+  check("icon", d.querySelector("link[rel=icon]").href.includes("/DocuBhai/icon.png"));
+
+  // tabs
+  d.querySelector('[data-tab="view"]').click();
+  check("tab-switch", !d.getElementById("view").hidden && d.getElementById("merge").hidden);
+
+  // viewer: open a 3-page pdf
+  const bytes = await makePdf(["Hello viewer", "Second page", "Third page"]);
+  setFiles(d.getElementById("view-file"), [file(bytes, "v.pdf")]);
+  await until(() => viewer.count === 3);
+  check("pages", viewer.count === 3 && d.getElementById("view-of").textContent === "of 3", d.getElementById("msg-text").textContent + " | " + d.getElementById("status").textContent);
+  const page = viewer.pages[0].el;
+  await until(() => page.querySelector("canvas") && page.querySelectorAll(".textLayer span").length);
+  const canvas = page.querySelector("canvas");
+  const px = canvas.getContext("2d").getImageData(2, 2, 1, 1).data;
+  check("white-background", [...px].join() === "255,255,255,255", [...px].join());
+  check("hi-res", canvas.width >= 2 * page.clientWidth - 1, `${canvas.width} vs ${page.clientWidth}`);
+  check("text-layer", page.querySelector(".textLayer").textContent.includes("Hello viewer"));
+
+  // select text like a user would
+  const span = [...page.querySelectorAll(".textLayer span")].find((s) => s.textContent.includes("Hello"));
+  const range = d.createRange();
+  range.selectNodeContents(span);
+  const sel = frame.contentWindow.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  check("selection", sel.toString().includes("Hello viewer"));
+
+  // zoom + navigation
+  viewer.zoomBy(1.25);
+  check("zoom", d.getElementById("zoom-label").textContent === "125%", d.getElementById("zoom-label").textContent);
+  d.getElementById("view-next").click();
+  await sleep(200);
+  check("next-page", viewer.page === 1 && d.getElementById("view-page").value === "2");
+  d.getElementById("viewer").scrollTop = d.getElementById("viewer").scrollHeight;
+  await sleep(300);
+  check("continuous-scroll", viewer.page === 2 && d.getElementById("view-page").value === "3", `page ${viewer.page}`);
+  await until(() => viewer.pages[2].el.querySelector("canvas"));
+  await until(() => viewer.pages[2].el.querySelector(".textLayer span"), 30);
+  check("text-on-last-page", viewer.pages[2].el.querySelector(".textLayer")?.textContent.includes("Third page"), viewer.pages[2].el.innerHTML.slice(0, 200));
+  check("lazy-render", !!viewer.pages[2].el.querySelector("canvas") && !viewer.pages[0].el.querySelector("canvas") || viewer.count === 3);
+
+  // merge list through the real inputs
+  d.querySelector('[data-tab="merge"]').click();
+  setFiles(d.getElementById("merge-add"), [file(bytes, "a.pdf"), file(bytes, "b.pdf")]);
+  const items = () => [...d.querySelectorAll("#merge-list li")].map((li) => li.textContent);
+  check("merge-add", items().join() === "a.pdf,b.pdf", items().join());
+  d.querySelectorAll("#merge-list li")[1].click();
+  d.getElementById("merge-up").click();
+  check("merge-reorder", items().join() === "b.pdf,a.pdf", items().join());
+
+  // compare through the real inputs
+  const other = await makePdf(["Hello viewer", "Second page", "Mars page"]);
+  d.querySelector('[data-tab="compare"]').click();
+  setFiles(d.getElementById("cmp-a"), [file(bytes, "one.pdf")]);
+  setFiles(d.getElementById("cmp-b"), [file(other, "two.pdf")]);
+  d.getElementById("cmp-go").click();
+  await until(() => d.getElementById("cmp-out").textContent);
+  const out = d.getElementById("cmp-out").textContent;
+  check("compare", out.includes("-[p3] Third page") && out.includes("+[p3] Mars page"), out);
+
+  // errors surface in the dialog instead of crashing
+  d.querySelector('[data-tab="sign"]').click();
+  d.getElementById("sign-go").click();
+  await sleep(300);
+  check("error-dialog", d.getElementById("msg").open && d.getElementById("msg-text").textContent.includes("choose"));
+} catch (e) {
+  results.exception = String(e?.stack ?? e);
+}
+document.getElementById("result").textContent = "RESULT:" + JSON.stringify(results) + ":END";
+</script>

@@ -53,3 +53,28 @@ A global Qt stylesheet gives Windows 2003 ("Luna"/classic): `#ECE9D8` beige surf
 - `pdf_ops` tests build small PDFs with reportlab (each page stamped with unique text), run an operation, and verify with pypdf (page counts, order, text).
 - `tests/test_viewer.py` loads a generated PDF, checks white page background, render resolution, continuous scroll/current page, cache bound, page clamping, zoom limits, fit-width, and simulates a mouse drag to verify select + copy.
 - GUI tests run with `QT_QPA_PLATFORM=offscreen`, no user interaction needed.
+
+## Web version (`web/`, deployed to GitHub Pages)
+
+A static, client-side port of the same five features – GitHub Pages cannot run Python/Qt, so the logic is rewritten in
+JavaScript and everything runs in the visitor's browser (nothing is uploaded).
+
+| File | Role |
+|---|---|
+| `web/index.html`, `web/style.css` | One page, five tab panels, Windows 2003 look (Comic Sans, black text, Luna title bar). Relative paths only, so it works at `/` and under `/DocuBhai/`. |
+| `web/js/pdfops.js` | Port of `pdf_ops.py`: `merge`, `split`, `sign`, `compare` (+ `diffLines`, `extractLines`). Pure functions; uses **pdf-lib** for editing. |
+| `web/js/viewer.js` | `PdfViewer`: continuous scroll on **pdf.js** – all pages laid out as sized placeholders, rendered lazily by an `IntersectionObserver`, supersampled (>=2x) canvases on opaque white, a pdf.js text layer for selection/copy, zoom and fit-width. |
+| `web/js/app.js` | UI glue; every action goes through `safely()` (the web twin of `run_safely`) which shows a dialog on error. |
+| `web/vendor/` | pdf-lib, pdf.js (legacy build, worker, standard fonts, viewer CSS) and their licences – no CDN. |
+| `scripts/serve.mjs` | Local static server (also used by the tests to mount the site under `/DocuBhai/`). |
+| `.github/workflows/pages.yml` | CI: `npm test`, then publish `web/` to GitHub Pages. |
+
+```
+ browser ── index.html ── app.js ─┬─ pdfops.js ── pdf-lib   (merge / split / sign, bytes in -> bytes out)
+                                  │            └─ pdf.js     (text extraction for compare)
+                                  └─ viewer.js ── pdf.js     (render pages + text layer)
+```
+
+Tests: `tests/web/pdfops.test.mjs` (Node: each operation) and `tests/web/smoke.test.mjs` (headless Chrome/Edge drives the
+real page: white page canvas, hi-res rendering, text selection, zoom, continuous scroll, merge list reorder, compare,
+error dialog). See `DEPLOY.md` for hosting steps.
