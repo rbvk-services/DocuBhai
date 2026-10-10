@@ -35,4 +35,5 @@ node scripts/serve.mjs 8080 /DocuBhai/ # same, but under the sub-path used on Gi
 
 - Third-party code is vendored in `web/vendor/` (pdf-lib – MIT, pdf.js – Apache-2.0; licences included), so the site
   has no CDN dependency. To upgrade, replace those files with the new versions from npm (`pdf-lib`, `pdfjs-dist/legacy`).
-- Comic Sans MS is a system font: Windows/macOS show it, other systems fall back to Comic Neue / a cursive font.
+- Fonts: real Comic Sans MS is used where installed (Windows/macOS/iOS). Everywhere else (Android, Linux) the bundled
+  Comic Neue (`web/fonts/`, SIL OFL licence) is used, so the look is consistent on phones and PCs.

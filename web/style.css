@@ -1,4 +1,7 @@
-:root { --beige: #ECE9D8; --blue: #0054E3; --sel: #316AC5; font-family: "Comic Sans MS", "Comic Sans", "Comic Neue", cursive; }
+/* Comic Neue (free, OFL) is bundled so phones/Linux, which lack Comic Sans MS, still get a Comic Sans look. */
+@font-face { font-family: "Comic Neue"; font-weight: 400; font-display: swap; src: url("fonts/comic-neue-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Comic Neue"; font-weight: 700; font-display: swap; src: url("fonts/comic-neue-latin-700-normal.woff2") format("woff2"); }
+:root { --beige: #ECE9D8; --blue: #0054E3; --sel: #316AC5; font-family: "Comic Sans MS", "Comic Neue", "Comic Sans", cursive; }
 * { box-sizing: border-box; font-family: inherit; color: #000; }
 html, body { height: 100%; margin: 0; }
 body {  /* "Bliss"-style desktop */

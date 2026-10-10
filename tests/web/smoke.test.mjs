@@ -65,7 +65,7 @@ test("site works end-to-end in a real browser", { skip: !browser && "no Chrome/E
     const results = await readResult(debugPort, Date.now() + 90_000);
     const failed = Object.entries(results).filter(([, v]) => v !== "ok");
     assert.deepEqual(failed, [], "failed checks: " + JSON.stringify(failed));
-    assert.ok(Object.keys(results).length >= 14, "too few checks ran: " + Object.keys(results).join());
+    assert.ok(Object.keys(results).length >= 15, "too few checks ran: " + Object.keys(results).join());
   } finally {
     proc.kill();
     server.close();

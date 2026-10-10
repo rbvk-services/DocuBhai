@@ -31,6 +31,8 @@ try {
   const w = frame.contentWindow, d = frame.contentDocument;
   const { viewer } = w.docubhai;
   check("fonts", getComputedStyle(d.body).fontFamily.includes("Comic Sans"));
+  await d.fonts.load('14px "Comic Neue"');
+  check("bundled-font", d.fonts.check('14px "Comic Neue"') && [...d.fonts].some((f) => f.family.includes("Comic Neue") && f.status === "loaded"));
   check("icon", d.querySelector("link[rel=icon]").href.includes("/DocuBhai/icon.png"));
 
   // tabs
