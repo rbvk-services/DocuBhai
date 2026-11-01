@@ -8,15 +8,24 @@ from reportlab.pdfgen import canvas
 
 
 def merge(paths, out):
-    """Append all pages of `paths` (in the given order) into `out`."""
+    """Append all pages of `paths` (in the given order) into `out` (a path or a writable binary stream)."""
     if not paths:
         raise ValueError("Nothing to merge")
     w = PdfWriter()
     for p in paths:
-        for page in PdfReader(p).pages:
-            w.add_page(page)
-    with open(out, "wb") as f:
-        w.write(f)
+        try:
+            pages = PdfReader(p).pages
+            for page in pages:
+                w.add_page(page)
+        except FileNotFoundError:
+            raise ValueError(f"File not found: {p}")
+        except Exception:
+            raise ValueError(f"Could not read '{p}': not a valid PDF")
+    if hasattr(out, "write"):
+        w.write(out)
+    else:
+        with open(out, "wb") as f:
+            w.write(f)
     return out
 
 

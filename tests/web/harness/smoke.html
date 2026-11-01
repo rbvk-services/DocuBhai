@@ -17,9 +17,11 @@ async function makePdf(texts) {
   for (const t of texts) doc.addPage([595, 842]).drawText(t, { x: 100, y: 700, size: 14, font });
   return doc.save();
 }
-const file = (bytes, name) => new File([bytes], name, { type: "application/pdf" });
+// Build Files / DataTransfers inside the app's iframe: an ArrayBuffer from another realm fails pdf-lib's instanceof check.
+const win = () => document.getElementById("app").contentWindow;
+const file = (bytes, name, type = "application/pdf") => new (win().File)([bytes], name, { type });
 function setFiles(input, files) {
-  const dt = new DataTransfer();
+  const dt = new (win().DataTransfer)();
   files.forEach((f) => dt.items.add(f));
   input.files = dt.files;
   input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -83,6 +85,86 @@ try {
   d.querySelectorAll("#merge-list li")[1].click();
   d.getElementById("merge-up").click();
   check("merge-reorder", items().join() === "b.pdf,a.pdf", items().join());
+
+  // ---- merge tab: ticks on the right, select all, multi-select, arrows, remove, clear, preview ----
+  const $ = (id) => d.getElementById(id);
+  const rows = () => [...d.querySelectorAll("#merge-list li")];
+  const names = () => rows().map((li) => li.querySelector(".name").textContent);
+  const ticked = () => rows().map((li) => li.querySelector("input").checked);
+  const click = (el) => el.click();
+  const dis = (id) => $(id).disabled;
+
+  // current list is [b.pdf*, a.pdf] (b ticked from the reorder check above)
+  const r0 = rows()[0];
+  check("tick-on-right", r0.querySelector("input").getBoundingClientRect().left >= r0.querySelector(".name").getBoundingClientRect().right);
+  check("merge-count", $("merge-count").textContent === "1 of 2 selected", $("merge-count").textContent);
+  check("select-all-partial", $("merge-all").indeterminate === true && $("merge-all").checked === false);
+  check("up-disabled-at-top", dis("merge-up") && !dis("merge-down"));   // b is ticked at the top row
+
+  click($("merge-all"));
+  check("select-all", ticked().every(Boolean) && $("merge-all").checked && !$("merge-all").indeterminate && $("merge-count").textContent === "2 of 2 selected");
+  check("arrows-off-when-all-ticked", dis("merge-up") && dis("merge-down") && !dis("merge-remove"));
+  click($("merge-all"));
+  check("deselect-all", ticked().every((t) => !t) && dis("merge-remove") && dis("merge-up") && dis("merge-down"));
+
+  setFiles($("merge-add"), [file(bytes, "c.pdf")]);              // list: b a c, nothing ticked
+  click(rows()[2]);                                              // clicking anywhere on the row ticks it
+  check("row-click-ticks", ticked().join() === "false,false,true" && rows()[2].className === "selected");
+  check("down-disabled-at-bottom", !dis("merge-up") && dis("merge-down"));
+  click($("merge-up"));
+  check("arrow-up-moves-ticked", names().join() === "b.pdf,c.pdf,a.pdf" && ticked().join() === "false,true,false", names().join());
+  click(rows()[0].querySelector("input"));                       // the checkbox itself toggles exactly once
+  check("multi-select", ticked().join() === "true,true,false" && $("merge-count").textContent === "2 of 3 selected", ticked().join());
+  click($("merge-down"));
+  check("arrow-down-moves-group", names().join() === "a.pdf,b.pdf,c.pdf", names().join());
+  click($("merge-remove"));
+  check("remove-ticked", names().join() === "a.pdf" && ticked().join() === "false");
+
+  setFiles($("merge-add"), [file("plain text", "notes.txt", "text/plain")]);
+  check("non-pdf-skipped", names().join() === "a.pdf" && $("status").textContent.includes("Skipped 1"), $("status").textContent);
+
+  // preview: a real merged PDF in a pop-up (a.pdf + b.pdf, 3 pages each)
+  setFiles($("merge-add"), [file(await makePdf(["X1", "X2", "X3"]), "b.pdf")]);
+  click($("merge-preview"));
+  const pv = $("preview");
+  await until(() => pv.open && d.querySelectorAll("#preview-viewer .page").length === 6);
+  check("preview-opens-with-all-pages", pv.open && d.querySelectorAll("#preview-viewer .page").length === 6, String(d.querySelectorAll("#preview-viewer .page").length));
+  check("preview-title", $("preview-title").textContent === "Merge preview - 2 files, 6 pages", $("preview-title").textContent);
+  await until(() => d.querySelector("#preview-viewer .page canvas"));
+  const pc = d.querySelector("#preview-viewer .page canvas");
+  check("preview-renders-white-page", !!pc && [...pc.getContext("2d").getImageData(2, 2, 1, 1).data].join() === "255,255,255,255");
+  check("preview-has-download", $("preview-save").textContent.includes("Download") && !$("preview-save").disabled);
+  click($("pv-in"));
+  check("preview-zoom", $("pv-zoom").textContent !== "100%", $("pv-zoom").textContent);
+  click($("preview-close"));
+  await sleep(200);
+  check("preview-closes-and-frees-pages", !pv.open && d.querySelectorAll("#preview-viewer .page").length === 0);
+  check("preview-did-not-change-list", names().join() === "a.pdf,b.pdf" && ticked().every((t) => !t));
+
+  // clear: asks first
+  click($("merge-clear"));
+  check("clear-asks", $("confirm").open && $("confirm-text").textContent === "Remove all 2 files from the list?", $("confirm-text").textContent);
+  click(d.querySelector('#confirm button[value="no"]'));
+  await sleep(100);
+  check("clear-declined-keeps-files", !$("confirm").open && names().length === 2);
+  click($("merge-clear"));
+  click(d.querySelector('#confirm button[value="yes"]'));
+  await sleep(100);
+  check("clear-confirmed-empties", names().length === 0 && dis("merge-clear") && dis("merge-all") && $("merge-count").textContent === "0 of 0 selected");
+
+  // negative: preview / merge with nothing, then with a corrupt file
+  click($("merge-preview"));
+  await until(() => $("msg").open);
+  check("preview-empty-error", $("msg").open && $("msg-text").textContent.includes("Nothing to merge") && !pv.open, $("msg-text").textContent);
+  $("msg").close();
+  setFiles($("merge-add"), [file("not a pdf at all", "bad.pdf")]);
+  click($("merge-preview"));
+  await until(() => $("msg").open);
+  check("preview-corrupt-error", $("msg-text").textContent.includes("Could not read 'bad.pdf'") && !pv.open, $("msg-text").textContent);
+  $("msg").close();
+  click($("merge-all"));
+  click($("merge-remove"));
+  check("remove-last-file", names().length === 0);
 
   // compare through the real inputs
   const other = await makePdf(["Hello viewer", "Second page", "Mars page"]);

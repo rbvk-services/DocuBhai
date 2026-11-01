@@ -1,9 +1,11 @@
-"""Draws the DocuBhai Aristocrat Reader icon (red tile, white ribbon 'D') to icon.png / icon.ico."""
+"""Draws the DocuBhai Aristocrat Reader icon (red tile, white ribbon 'D') to icon.png / icon.ico,
+and the three checkbox images (off / on / partial) the desktop stylesheet uses, to assets/."""
 import math
+import os
 import sys
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QGuiApplication, QImage, QLinearGradient, QPainter, QPainterPath, QPolygonF
+from PySide6.QtGui import QColor, QGuiApplication, QImage, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF
 
 N = 256
 
@@ -57,8 +59,29 @@ def draw():
     return img
 
 
+def checkbox(state):
+    """32px checkbox image: state is 'off', 'on' (tick) or 'partial' (dash)."""
+    img = QImage(32, 32, QImage.Format_ARGB32)
+    img.fill(Qt.transparent)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QPen(QColor("#6B6B6B"), 3))
+    p.setBrush(Qt.white)
+    p.drawRect(QRectF(3, 3, 26, 26))
+    p.setPen(QPen(QColor("black"), 4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    if state == "on":
+        p.drawPolyline(QPolygonF([QPointF(9, 17), QPointF(14, 22), QPointF(23, 10)]))
+    elif state == "partial":
+        p.drawLine(9, 16, 23, 16)
+    p.end()
+    return img
+
+
 if __name__ == "__main__":
     QGuiApplication(sys.argv)
     img = draw()
     img.save("icon.png")
     img.save("icon.ico")
+    os.makedirs("assets", exist_ok=True)
+    for state in ("off", "on", "partial"):
+        checkbox(state).save(f"assets/checkbox-{state}.png")

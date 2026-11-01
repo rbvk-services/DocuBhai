@@ -30,8 +30,8 @@ def test_merge_through_gui_with_reorder(qapp, tmp_path):
     b = make_pdf(tmp_path / "b.pdf", ["B"])
     w = docu.MainWindow()
     t = w.merge_tab
-    t.list.addItems([a, b])
-    t.list.setCurrentRow(1)
+    t.add_files([a, b])
+    t.list.itemClicked.emit(t.list.item(1))  # tick B
     t.move(-1)  # B now first
     out = str(tmp_path / "m.pdf")
     t.do_merge(out)

@@ -1,4 +1,5 @@
 // UI glue: tabs, merge list, split/sign/compare forms, viewer toolbar. All work happens in the browser.
+import * as ml from "./mergelist.js";
 import * as ops from "./pdfops.js";
 import { PdfViewer, pdfjs } from "./viewer.js";
 
@@ -48,17 +49,39 @@ document.querySelectorAll(".tabs button").forEach((tab) =>
   }));
 
 // ---- merge ----
-const mergeFiles = []; // [{file}] in list order
-let selected = -1;
+let list = []; // [{file, name, checked}] in list order; all the rules live in mergelist.js (unit-tested)
+
+const dlg = (id) => $(id);
+
+/** Yes/No pop-up (never the blocking window.confirm unless <dialog> is unsupported). */
+function ask(title, text) {
+  const d = dlg("confirm");
+  if (!d.showModal) return Promise.resolve(confirm(`${title}\n${text}`));
+  $("confirm-title").textContent = title;
+  $("confirm-text").textContent = text;
+  d.returnValue = "";
+  return new Promise((resolve) => {
+    d.addEventListener("close", () => resolve(d.returnValue === "yes"), { once: true });
+    d.showModal();
+  });
+}
+
+function setList(next) {
+  list = next;
+  renderMerge();
+}
 
 function renderMerge() {
-  const ul = $("merge-list");
-  ul.replaceChildren(...mergeFiles.map((f, i) => {
+  $("merge-list").replaceChildren(...list.map((it, i) => {
     const li = document.createElement("li");
-    li.textContent = f.name;
+    li.className = it.checked ? "selected" : "";
     li.draggable = true;
-    li.className = i === selected ? "selected" : "";
-    li.onclick = () => { selected = i; renderMerge(); };
+    const name = Object.assign(document.createElement("span"), { className: "name", textContent: it.name, title: it.name });
+    const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: it.checked });
+    box.setAttribute("aria-label", `Select ${it.name}`);
+    box.onchange = () => setList(ml.toggle(list, i));
+    li.append(name, box);
+    li.onclick = (e) => { if (e.target !== box) setList(ml.toggle(list, i)); }; // a click anywhere on the row ticks it
     li.ondragstart = (e) => e.dataTransfer.setData("text/x-index", String(i));
     li.ondragover = (e) => { e.preventDefault(); li.classList.add("over"); };
     li.ondragleave = () => li.classList.remove("over");
@@ -66,35 +89,72 @@ function renderMerge() {
       e.preventDefault();
       e.stopPropagation();
       const from = e.dataTransfer.getData("text/x-index");
-      if (from !== "") move(+from, i);
+      if (from !== "") setList(ml.reorder(list, +from, i));
       else addFiles(e.dataTransfer.files);
     };
     return li;
   }));
-}
-
-function move(from, to) {
-  mergeFiles.splice(to, 0, ...mergeFiles.splice(from, 1));
-  selected = to;
-  renderMerge();
+  const state = ml.checkState(list);
+  const all = $("merge-all");
+  all.checked = state === "all";
+  all.indeterminate = state === "some";
+  all.disabled = !list.length;
+  $("merge-remove").disabled = state === "none";
+  $("merge-up").disabled = !ml.canMove(list, -1);
+  $("merge-down").disabled = !ml.canMove(list, 1);
+  $("merge-clear").disabled = !list.length;
+  $("merge-count").textContent = ml.summary(list);
 }
 
 function addFiles(files) {
-  mergeFiles.push(...[...files].filter((f) => /\.pdf$/i.test(f.name) || f.type === "application/pdf"));
-  renderMerge();
+  const all = [...files], pdfs = all.filter(ml.isPdf);
+  setList([...list, ...pdfs.map((file) => ({ file, name: file.name, checked: false }))]);
+  if (pdfs.length < all.length) say(`Skipped ${all.length - pdfs.length} file(s) that are not PDFs`);
 }
+
+async function readAll() {
+  return Promise.all(list.map(async (it) => {
+    try { return await readFile(it.file); } catch { throw new Error(`Could not read '${it.name}' (was it moved or deleted?)`); }
+  }));
+}
+const mergeNow = async () => ops.merge(await readAll(), list.map((it) => it.name));
 
 $("merge-add").onchange = (e) => { addFiles(e.target.files); e.target.value = ""; };
 $("merge-list").ondragover = (e) => e.preventDefault();
 $("merge-list").ondrop = (e) => { e.preventDefault(); addFiles(e.dataTransfer.files); };
-$("merge-remove").onclick = () => { if (selected >= 0) { mergeFiles.splice(selected, 1); selected = -1; renderMerge(); } };
-$("merge-up").onclick = () => selected > 0 && move(selected, selected - 1);
-$("merge-down").onclick = () => selected >= 0 && selected < mergeFiles.length - 1 && move(selected, selected + 1);
+$("merge-all").onchange = (e) => setList(ml.setAll(list, e.target.checked));
+$("merge-remove").onclick = () => setList(ml.removeChecked(list));
+$("merge-up").onclick = () => setList(ml.moveChecked(list, -1));
+$("merge-down").onclick = () => setList(ml.moveChecked(list, 1));
+$("merge-clear").onclick = async () => {
+  if (list.length && (await ask("Clear list", `Remove all ${list.length} files from the list?`))) setList([]);
+};
 $("merge-go").onclick = safely(async () => {
-  const bytes = await ops.merge(await Promise.all(mergeFiles.map(readFile)));
-  download(bytes, "merged.pdf");
-  return `Merged ${mergeFiles.length} files into merged.pdf`;
+  download(await mergeNow(), "merged.pdf");
+  return `Merged ${list.length} files into merged.pdf`;
 });
+
+// merge preview: build the real merged PDF in memory and show it in a pop-up before downloading
+const preview = new PdfViewer($("preview-viewer"), {
+  onPage: (i) => ($("pv-page").textContent = `Page ${i + 1} of ${preview.count}`),
+  onZoom: (pct) => ($("pv-zoom").textContent = `${pct}%`),
+});
+let previewBytes = null;
+$("merge-preview").onclick = safely(async () => {
+  previewBytes = await mergeNow(); // errors (empty list, bad file) surface before the pop-up opens
+  dlg("preview").showModal();
+  await preview.load(previewBytes.buffer);
+  $("preview-title").textContent = `Merge preview - ${list.length} files, ${preview.count} pages`;
+  $("pv-page").textContent = `Page 1 of ${preview.count}`;
+  preview.fitWidth();
+});
+$("pv-out").onclick = () => preview.zoomBy(0.8);
+$("pv-in").onclick = () => preview.zoomBy(1.25);
+$("pv-fit").onclick = () => preview.fitWidth();
+$("preview-save").onclick = () => previewBytes && download(previewBytes, "merged.pdf");
+dlg("preview").addEventListener("close", () => { preview.clear(); previewBytes = null; }); // free the pages
+
+renderMerge();
 
 // ---- split ----
 $("split-go").onclick = safely(async () => {

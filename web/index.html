@@ -25,15 +25,26 @@
   </nav>
 
   <section class="panel" id="merge">
-    <p class="hint">Add PDFs, then drag them (or use Move Up / Move Down) to set the order.</p>
+    <p class="hint">Tick files to select them, then Remove them or move them with the arrows. Drag rows to reorder.
+      Preview and Merge always use every file, top to bottom.</p>
     <div class="row grow">
-      <ul id="merge-list" class="list" aria-label="Files to merge"></ul>
+      <div class="listbox">
+        <div class="list-head">
+          <label><input id="merge-all" type="checkbox"> Select all</label>
+          <span id="merge-count" aria-live="polite">0 of 0 selected</span>
+        </div>
+        <ul id="merge-list" class="list" aria-label="Files to merge"></ul>
+      </div>
       <div class="col">
         <label class="btn">Add...<input id="merge-add" type="file" accept="application/pdf" multiple hidden></label>
-        <button id="merge-remove">Remove</button>
-        <button id="merge-up">Move Up</button>
-        <button id="merge-down">Move Down</button>
+        <button id="merge-remove" title="Remove ticked files">Remove</button>
+        <div class="arrows">
+          <button id="merge-up" title="Move up" aria-label="Move up">&#9650;</button>
+          <button id="merge-down" title="Move down" aria-label="Move down">&#9660;</button>
+        </div>
+        <button id="merge-clear" title="Remove all files">Clear</button>
         <span class="spacer"></span>
+        <button id="merge-preview" title="Preview the merged PDF">Preview...</button>
         <button id="merge-go">Merge &amp; Download</button>
       </div>
     </div>
@@ -87,6 +98,23 @@
 
   <footer class="status"><span id="status">Ready</span><span>Your files never leave this browser.</span></footer>
 </main>
+
+<dialog id="confirm"><h2 id="confirm-title"></h2><p id="confirm-text"></p>
+  <form method="dialog"><button value="yes">Yes</button> <button value="no" autofocus>No</button></form></dialog>
+
+<dialog id="preview" aria-labelledby="preview-title">
+  <header class="dlg-title"><span id="preview-title">Merge preview</span></header>
+  <div class="toolbar">
+    <button id="pv-out" aria-label="Zoom out">-</button><span id="pv-zoom">100%</span><button id="pv-in" aria-label="Zoom in">+</button>
+    <button id="pv-fit">Fit Width</button>
+    <span id="pv-page">Page 1 of 1</span>
+  </div>
+  <div id="preview-viewer" class="viewer" tabindex="0"></div>
+  <form method="dialog" class="dlg-foot">
+    <button type="button" id="preview-save">Download merged PDF</button>
+    <button id="preview-close">Close</button>
+  </form>
+</dialog>
 
 <dialog id="msg"><h2 id="msg-title"></h2><p id="msg-text"></p><form method="dialog"><button>OK</button></form></dialog>
 <script type="module" src="js/app.js"></script>

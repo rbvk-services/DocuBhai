@@ -30,9 +30,22 @@ input[type=text], input[type=number], select, .list, .result { background: #fff;
 .col button, .col .btn { min-width: 130px; }
 .spacer { flex: 1; }
 .list { flex: 1; margin: 0; padding: 0; list-style: none; overflow: auto; }
-.list li { padding: 3px 6px; cursor: grab; }
+.listbox { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.list-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.list-head label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 8px; cursor: grab; }
+.list li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list li.selected { background: var(--sel); color: #fff; }
 .list li.selected * { color: #fff; }
+input[type=checkbox] { appearance: none; -webkit-appearance: none; position: relative; width: 18px; height: 18px; margin: 0; flex: none;
+  background: #fff; border: 2px solid #6B6B6B; border-radius: 2px; cursor: pointer; }
+input[type=checkbox]:checked::after { content: ""; position: absolute; left: 3px; top: -1px; width: 4px; height: 9px;
+  border: solid #000; border-width: 0 3px 3px 0; transform: rotate(45deg); }
+input[type=checkbox]:indeterminate::after { content: ""; position: absolute; left: 2px; top: 5px; width: 10px; height: 3px; background: #000; }
+input[type=checkbox]:disabled { cursor: default; opacity: .5; }
+.arrows { display: flex; gap: 6px; }
+.arrows button { flex: 1; min-width: 0; }
+button:disabled { color: #808080; cursor: default; border-style: solid; border-color: #fff #aca899 #aca899 #fff; }
 .list li.over { border-top: 2px solid var(--sel); }
 .form { display: grid; grid-template-columns: max-content 1fr; gap: 8px 12px; align-items: center; max-width: 560px; }
 .result { flex: 1; margin: 0; overflow: auto; white-space: pre-wrap; min-height: 120px; }
@@ -51,10 +64,18 @@ dialog { background: var(--beige); border: 3px solid var(--blue); border-radius:
 dialog h2 { margin: 0 0 6px; font-size: 15px; }
 dialog p { margin: 0 0 12px; white-space: pre-wrap; }
 dialog::backdrop { background: #0005; }
+#preview { width: min(920px, 96vw); height: min(780px, 92vh); max-width: none; padding: 0; overflow: hidden; }
+#preview[open] { display: flex; flex-direction: column; }
+#preview .toolbar { padding: 6px 8px; }
+#preview .viewer { margin: 0 8px; }
+.dlg-title { padding: 5px 10px; background: linear-gradient(#0997FF, #0053EE 12%, #0050EE 80%, #0066FF); }
+.dlg-title span { color: #fff; font-weight: bold; text-shadow: 1px 1px #0F1089; }
+.dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 8px; }
 @media (max-width: 640px) {
   body { padding: 0; }
   .window { height: 100%; border-radius: 0; }
   .form { grid-template-columns: 1fr; }
   .row { flex-direction: column; }
   .list { min-height: 140px; }
+  #preview { width: 100vw; height: 100vh; border-radius: 0; }
 }

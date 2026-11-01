@@ -67,3 +67,26 @@ test("diffLines handles insertions, deletions and empty inputs", () => {
   assert.deepEqual(d.map((x) => x.op + x.line), [" a", "-b", "+x", " c", "+d"]);
   assert.deepEqual(ops.diffLines([], []), []);
 });
+
+test("merge keeps duplicates, a single file, and lists every page in order", async () => {
+  const a = await makePdf(["A1", "A2"]);
+  assert.deepEqual(await lines(await ops.merge([a, a])), ["A1", "A2", "A1", "A2"]);
+  assert.deepEqual(await lines(await ops.merge([a])), ["A1", "A2"]);
+});
+
+test("merge names the corrupt file", async () => {
+  const good = await makePdf(["ok"]);
+  const junk = new TextEncoder().encode("this is not a pdf");
+  await assert.rejects(ops.merge([good, junk], ["good.pdf", "bad.pdf"]), /Could not read 'bad.pdf': not a valid PDF/);
+});
+
+test("merge falls back to 'file N' when no names are given", async () => {
+  const junk = new TextEncoder().encode("nope");
+  await assert.rejects(ops.merge([junk]), /Could not read 'file 1'/);
+  await assert.rejects(ops.merge([await makePdf(["x"]), junk]), /Could not read 'file 2'/);
+});
+
+test("merge rejects an empty file and an empty list", async () => {
+  await assert.rejects(ops.merge([new Uint8Array(0)], ["empty.pdf"]), /empty.pdf/);
+  await assert.rejects(ops.merge([], []), /Nothing to merge/);
+});

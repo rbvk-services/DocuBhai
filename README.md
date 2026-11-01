@@ -9,7 +9,7 @@ A small PDF toolbox with a Windows 2003 look (Comic Sans included): **merge, spl
 
 | Tab | What it does |
 |---|---|
-| Merge | Combine several PDFs in any order (drag to reorder) |
+| Merge | Combine several PDFs in any order: tick files (or Select all), move them with ▲ ▼ or drag, Remove, Clear, and **Preview** the merged result before saving |
 | Split | Cut a PDF into parts, e.g. pages `1-3,5`, or one file per page |
 | Sign | Stamp a typed signature on a page, in any corner |
 | Compare | Show which lines of text differ between two PDFs |
@@ -75,12 +75,14 @@ push code  ->  [test]  ->  [deploy]  ->  site is live
 
 ```
 DocuBhai/
-├── pdf_ops.py, viewer.py, app.py   Desktop app (Python + Qt)
+├── pdf_ops.py, listops.py          PDF operations / Merge-list rules (shared logic)
+├── viewer.py, app.py               Desktop app (Python + Qt)
 ├── tests/                          Python tests (pytest) + web tests (Node)
 ├── web/                            THE WEBSITE (this is what gets published)
 │   ├── index.html                  page structure (tabs, buttons)
 │   ├── style.css                   the Windows 2003 look
 │   ├── js/pdfops.js                merge / split / sign / compare
+│   ├── js/mergelist.js             rules for the Merge list (tick, move, remove)
 │   ├── js/viewer.js                the PDF reader (scroll, zoom, select text)
 │   ├── js/app.js                   connects buttons to the code above
 │   └── vendor/                     two ready-made libraries (below)

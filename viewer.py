@@ -3,7 +3,7 @@ from bisect import bisect_right
 from collections import OrderedDict
 from math import sqrt
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QImage, QKeySequence, QPainter, QShortcut
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtWidgets import (
@@ -125,7 +125,7 @@ class PageView(QWidget):
 
 
 class ViewTab(QWidget):
-    def __init__(self):
+    def __init__(self, with_open=True):
         super().__init__()
         self.doc = QPdfDocument(self)
         self.page, self.scale, self._jumping = 0, BASE, False
@@ -151,7 +151,7 @@ class ViewTab(QWidget):
             return b
 
         bar = QHBoxLayout()
-        for w in (btn("Open...", lambda: self.open_dialog()), btn("< Prev", lambda: self.go_to(self.page - 1)),
+        for w in (*([btn("Open...", lambda: self.open_dialog())] if with_open else []), btn("< Prev", lambda: self.go_to(self.page - 1)),
                   self.goto, self.of, btn("Next >", lambda: self.go_to(self.page + 1)),
                   btn("-", lambda: self.zoom_by(0.8)), self.zoom_label, btn("+", lambda: self.zoom_by(1.25)),
                   btn("Fit Width", self.fit_width), btn("Copy", self.copy)):
@@ -170,6 +170,19 @@ class ViewTab(QWidget):
     def load(self, path):
         if self.doc.load(path) != QPdfDocument.Error.None_:
             raise ValueError(f"Could not open {path}")
+        self._loaded()
+
+    def load_bytes(self, data):
+        """Open a PDF held in memory (e.g. a merge preview) without touching the disk."""
+        self._buf = QBuffer()  # keep a reference: QPdfDocument reads from it lazily
+        self._buf.setData(QByteArray(data))
+        self._buf.open(QIODevice.ReadOnly)
+        self.doc.load(self._buf)
+        if self.doc.status() != QPdfDocument.Status.Ready:
+            raise ValueError("Could not open the PDF data")
+        self._loaded()
+
+    def _loaded(self):
         self.goto.setMaximum(self.doc.pageCount())
         self.of.setText(f"of {self.doc.pageCount()}")
         self.view.set_doc(self.doc, self.scale)

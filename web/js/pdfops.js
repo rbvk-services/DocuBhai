@@ -3,11 +3,16 @@ import { PDFDocument, StandardFonts, rgb } from "../vendor/pdf-lib.esm.min.js";
 
 export const POSITIONS = ["bottom-right", "bottom-left", "top-right", "top-left"];
 
-export async function merge(buffers) {
+export async function merge(buffers, names = []) {
   if (!buffers.length) throw new Error("Nothing to merge");
   const out = await PDFDocument.create();
-  for (const buf of buffers) {
-    const src = await PDFDocument.load(buf);
+  for (const [i, buf] of buffers.entries()) {
+    let src;
+    try {
+      src = await PDFDocument.load(buf);
+    } catch {
+      throw new Error(`Could not read '${names[i] ?? `file ${i + 1}`}': not a valid PDF`);
+    }
     (await out.copyPages(src, src.getPageIndices())).forEach((p) => out.addPage(p));
   }
   return out.save();

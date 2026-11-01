@@ -25,6 +25,9 @@ export class PdfViewer {
     }, { passive: false });
   }
 
+  /** Drop the document and every rendered page (frees memory, e.g. when a pop-up closes). */
+  clear() { this.#clear(); }
+
   get count() { return this.pages.length; }
   get zoomPercent() { return Math.round((this.scale / CSS_PX) * 100); }
 
